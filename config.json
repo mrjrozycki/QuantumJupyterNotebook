@@ -1,0 +1,39 @@
+{
+    "QAOA":{
+        "general":{
+            "func_find_par": {
+                "method": "COBYLA",
+                "tolerance": 0.001,
+                "options": {"maxiter": 100000}
+            },
+            "func_find_best_parameters": {
+                "pool_size": 10,
+                "iter_init": 100,
+                "best_number": 15,
+                "p_start": 3,
+                "p_end": 10,
+                "use_next_params": true,
+                "beta_corr_thr": 0.9,
+                "gamma_corr_thr": 0.9
+            }
+        },
+        "jsp": {
+            "max_time": 4,
+            "problem_version": "optimization"
+        },
+        "maxcut": {
+            "n": -1,
+            "a": 1
+        }
+    },
+    
+    "D-Wave": {
+        "jsp":{
+            "mode": "sim_pyqubo",
+            "num_reads": 1000,
+            "weight_one_hot": 3,
+            "weight_precedence": 1,
+            "weight_share":2
+        }
+    }
+}
