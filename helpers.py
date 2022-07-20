@@ -77,6 +77,13 @@ def get_solution(id, token):
     response = requests.get(f"{URL}result/{id}", headers=headers).json()
     return response
 
+def get_solution_sync(id, token):
+    result = {}
+    result["status"] = None
+    while result["status"] != "Solved":
+        result = get_solution(id, token)
+    return result
+
 def maxcut(V, E, architecture = "QAOA", token = "2cc03f168032ae77fb28e5a2229a89acdf7ee89b", get_result_async = True):
     config = get_config(algorithm=maxcut.__name__, architecture=architecture)
     data = {"Vertices": V, "Edges": E}
@@ -88,9 +95,7 @@ def maxcut(V, E, architecture = "QAOA", token = "2cc03f168032ae77fb28e5a2229a89a
     print(f'Solving problem {algorithm} with id: {id}')
 
     if not get_result_async:
-        result = {}
-        result["status"] = None
-        while result["status"] != "Solved":
-            result = get_solution(id, token)
+        response = get_solution_sync(id, token)
+        return response
 
-        return result
+
