@@ -77,9 +77,6 @@ def get_solution(id, token):
     response = requests.get(f"{URL}result/{id}", headers=headers).json()
     return response
 
-
-
-
 def maxcut(V, E, architecture = "QAOA", token = "2cc03f168032ae77fb28e5a2229a89acdf7ee89b", get_result_async = True):
     config = get_config(algorithm=maxcut.__name__, architecture=architecture)
     data = {"Vertices": V, "Edges": E}
@@ -97,7 +94,3 @@ def maxcut(V, E, architecture = "QAOA", token = "2cc03f168032ae77fb28e5a2229a89a
             result = get_solution(id, token)
 
         return result
-
-
-
-# pprint(maxcut([1,2,3,4,5,6,7,8,9,10], [[1,2],[1,3],[1,4],[1,5],[1,6],[1,7],[1,8],[1,9],[1,10]], architecture="QAOA"))
