@@ -16,6 +16,7 @@ from scipy.stats import pearsonr
 from qat.vsolve.ansatz import AnsatzFactory
 from qat.qpus import get_default_qpu
 from qat.plugins import ScipyMinimizePlugin
+from multiprocessing import Pool
 
 
 
@@ -135,39 +136,39 @@ class Algorithm:
 
         iter_loop = self.iter_init
         hamiltonian = self.make_hamiltonian()
+        with Pool(p) as pool:
+            self.iter_loop = iter_loop
+            tape = pool.map(find_run, [[hamiltonian, i, p, self] for i in
+                                    range(iter_loop)])
 
-        self.iter_loop = iter_loop
-        tape = p_map(find_run, [[hamiltonian, i, p, self] for i in
-                                range(iter_loop)], num_cpus=self.pool_size)
 
+            best_tape = tape
+            if p > 1:
+                correlations = [(pearsonr(np.arange(1, p + 1), x[1][:p])[0],
+                                    pearsonr(np.arange(1, p + 1), x[1][p:])[0]) for x in tape]
+                best_tape = []
+                for t, c in zip(tape, correlations):
+                    if c[0] > self.beta_corr_thr and c[1] > \
+                            self.gamma_corr_thr:
+                        best_tape.append(t)
 
-        best_tape = tape
-        if p > 1:
-            correlations = [(pearsonr(np.arange(1, p + 1), x[1][:p])[0],
-                                pearsonr(np.arange(1, p + 1), x[1][p:])[0]) for x in tape]
-            best_tape = []
-            for t, c in zip(tape, correlations):
-                if c[0] > self.beta_corr_thr and c[1] > \
-                        self.gamma_corr_thr:
-                    best_tape.append(t)
+            best_tape = best_tape[:ceil(self.iter_init*0.3)]
+            try:
+                self.solutions.append((p, best_tape[0][2], best_tape[0][0]))
+            except:
+                print("Nothing good enought to add, probably not enought iteretion")
 
-        best_tape = best_tape[:ceil(self.iter_init*0.3)]
-        try:
-            self.solutions.append((p, best_tape[0][2], best_tape[0][0]))
-        except:
-            print("Nothing good enought to add, probably not enought iteretion")
-
-        best_solution = ""
-        self.progress_p = -1
-        try:
-            best_solution = max(
-                self.solutions[-1][1], key=self.solutions[-1][1].get)
-        except:
-            pass
-        print("\n")
-        # print("graph_data:", self.best_tape_graph, '\n')
-        print("Najlepsze rozwiazanie to:", ''.join('1' if x == '0' else '0' for x in best_solution))
-        # return (''.join('1' if x == '0' else '0' for x in best_solution))
+            best_solution = ""
+            self.progress_p = -1
+            try:
+                best_solution = max(
+                    self.solutions[-1][1], key=self.solutions[-1][1].get)
+            except:
+                pass
+            print("\n")
+            # print("graph_data:", self.best_tape_graph, '\n')
+            print("Najlepsze rozwiazanie to:", ''.join('1' if x == '0' else '0' for x in best_solution))
+            # return (''.join('1' if x == '0' else '0' for x in best_solution))
         return 0
 
 
