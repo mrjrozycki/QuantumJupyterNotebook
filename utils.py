@@ -21,7 +21,7 @@ from multiprocessing import Pool
 
 
 class Algorithm:
-    def __init__(self, threads = 1, num_iter = 100, p = 1, beta_corr_thr = 0.9, gamma_corr_thr = 0.9, beta_bound=np.pi * 1, gamma_bound=np.pi * 2):
+    def __init__(self, threads = 1, num_prop = 100, p = 1, beta_corr_thr = 0.9, gamma_corr_thr = 0.9, beta_bound=np.pi * 1, gamma_bound=np.pi * 2):
 
         self.beta_bound = beta_bound
         self.gamma_bound = gamma_bound
@@ -36,7 +36,7 @@ class Algorithm:
         self.best_tape_graph = []
         self.not_enough_calculation = 0
         self.pool_size = threads
-        self.iter_init = num_iter
+        self.iter_init = num_prop
         self.p = p
         self.beta_corr_thr = beta_corr_thr
         self.gamma_corr_thr = gamma_corr_thr
@@ -142,39 +142,39 @@ class Algorithm:
                                     range(iter_loop)])
 
 
-            best_tape = tape
-            if p > 1:
-                correlations = [(pearsonr(np.arange(1, p + 1), x[1][:p])[0],
-                                    pearsonr(np.arange(1, p + 1), x[1][p:])[0]) for x in tape]
-                best_tape = []
-                for t, c in zip(tape, correlations):
-                    if c[0] > self.beta_corr_thr and c[1] > \
-                            self.gamma_corr_thr:
-                        best_tape.append(t)
+        best_tape = tape
+        if p > 1:
+            correlations = [(pearsonr(np.arange(1, p + 1), x[1][:p])[0],
+                                pearsonr(np.arange(1, p + 1), x[1][p:])[0]) for x in tape]
+            best_tape = []
+            for t, c in zip(tape, correlations):
+                if c[0] > self.beta_corr_thr and c[1] > \
+                        self.gamma_corr_thr:
+                    best_tape.append(t)
 
-            best_tape = best_tape[:ceil(self.iter_init*0.3)]
-            try:
-                self.solutions.append((p, best_tape[0][2], best_tape[0][0]))
-            except:
-                print("Nothing good enought to add, probably not enought iteretion")
+        best_tape = best_tape[:ceil(self.iter_init*0.3)]
+        try:
+            self.solutions.append((p, best_tape[0][2], best_tape[0][0]))
+        except:
+            print("Nothing good enought to add, probably not enought iteretion")
 
-            best_solution = ""
-            self.progress_p = -1
-            try:
-                best_solution = max(
-                    self.solutions[-1][1], key=self.solutions[-1][1].get)
-            except:
-                pass
-            print("\n")
-            # print("graph_data:", self.best_tape_graph, '\n')
-            print("Najlepsze rozwiazanie to:", ''.join('1' if x == '0' else '0' for x in best_solution))
-            # return (''.join('1' if x == '0' else '0' for x in best_solution))
-        return 0
+        best_solution = ""
+        self.progress_p = -1
+        try:
+            best_solution = max(
+                self.solutions[-1][1], key=self.solutions[-1][1].get)
+        except:
+            pass
+        # print("\n")
+        # print("graph_data:", self.best_tape_graph, '\n')
+        # print("Najlepsze rozwiazanie to:", ''.join('1' if x == '0' else '0' for x in best_solution))
+        return (''.join('1' if x == '0' else '0' for x in best_solution))
+        # return 0
 
 
 class EXACTCOVER(Algorithm):
-    def __init__(self, routes, threads = 1, num_iter = 100, p = 1, beta_corr_thr = 0.9, gamma_corr_thr = 0.9, beta_bound=np.pi * 1, gamma_bound=np.pi * 2):
-        Algorithm.__init__(self, threads, num_iter, p, beta_corr_thr, gamma_corr_thr, beta_bound, gamma_bound)
+    def __init__(self, routes, threads = 1, num_prop = 100, p = 1, beta_corr_thr = 0.9, gamma_corr_thr = 0.9, beta_bound=np.pi * 1, gamma_bound=np.pi * 2):
+        Algorithm.__init__(self, threads, num_prop, p, beta_corr_thr, gamma_corr_thr, beta_bound, gamma_bound)
         self.routes = routes
         self.Jrr_dict = -1
         self.hr_dict = -1
