@@ -20,13 +20,12 @@ from qat.plugins import ScipyMinimizePlugin
 
 
 class Algorithm:
-    def __init__(self, config, beta_bound=np.pi * 1, gamma_bound=np.pi * 2):
+    def __init__(self, threads = 1, num_iter = 100, p = 1, beta_corr_thr = 0.9, gamma_corr_thr = 0.9, beta_bound=np.pi * 1, gamma_bound=np.pi * 2):
 
         self.beta_bound = beta_bound
         self.gamma_bound = gamma_bound
 
         self.solutions = []
-        self.config = config
         self.progress_p = 0
         self.progress_i = 0
         self.p_range = [0, 0]
@@ -35,13 +34,12 @@ class Algorithm:
         self.jobs_solution = -1
         self.best_tape_graph = []
         self.not_enough_calculation = 0
-        self.pool_size = self.config["parameters"]["find_best_parameters_qaoa"]["pool_size"]
-        self.iter_init = self.config["parameters"]["find_best_parameters_qaoa"]["iter_init"]
-        self.best_number = self.config["parameters"]["find_best_parameters_qaoa"]["best_number"]
-        self.p_start = self.config["parameters"]["find_best_parameters_qaoa"]["p_start"]
-        self.use_educated_guess = self.config["parameters"]["find_best_parameters_qaoa"]["use_next_params"]
+        self.pool_size = threads
+        self.iter_init = num_iter
+        self.p = p
+        self.beta_corr_thr = beta_corr_thr
+        self.gamma_corr_thr = gamma_corr_thr
 
-        self.p = self.p_start
 
     def match_params_to_job(self, x, job, p):
         params = []
@@ -53,7 +51,7 @@ class Algorithm:
                 params.append(x[p + idx])
         return params
 
-    def find_par(self, hamiltonian, i, p, educated_guess_params, use_educated_guess):
+    def find_par(self, hamiltonian, i, p):
         x = None
         np.random.seed(random.randint(0, 2 ** 23 - 1))
         x = np.random.rand(2 * p)
@@ -69,11 +67,7 @@ class Algorithm:
         ub[:p] *= self.beta_bound
         ub[p:] *= self.gamma_bound
         constraint = scipy.optimize.LinearConstraint(np.eye(len(x)), lb, ub)
-        stack = ScipyMinimizePlugin(method=self.config["parameters"]["find_qaoa"]["method"],
-                                    tol=self.config["parameters"]["find_qaoa"]["tolerance"], x0=init_params,
-                                    constraints=constraint,
-                                    options={"maxiter": self.config["parameters"]["find_qaoa"]["options"]}
-                                    ) | qpu
+        stack = ScipyMinimizePlugin(method="COBYLA", tol=0.001, x0=init_params, constraints=constraint, options={'maxiter': 100000}) | qpu
         result = stack.submit(job)
         optimal_job = circuit.to_job()
         optimal_job = optimal_job(
@@ -137,26 +131,15 @@ class Algorithm:
 
     def find_best_parameters(self):
         p = self.p
-        self.progress_p = self.p_start
-        educated_guess_params = None
 
-
-        if self.best_number > self.iter_init:
-            self.best_number = self.iter_init
 
         iter_loop = self.iter_init
         hamiltonian = self.make_hamiltonian()
 
-        # for p in range(self.p_start, self.p_end):
-        print("\n\n")
-
         self.iter_loop = iter_loop
-        tape = p_map(find_run, [[hamiltonian, i, p, educated_guess_params, self.use_educated_guess, self] for i in
+        tape = p_map(find_run, [[hamiltonian, i, p, self] for i in
                                 range(iter_loop)], num_cpus=self.pool_size)
 
-        self.progress_p = p + 1
-        if educated_guess_params is None:
-            tape = sorted(tape, key=lambda x: x[0])
 
         best_tape = tape
         if p > 1:
@@ -164,11 +147,11 @@ class Algorithm:
                                 pearsonr(np.arange(1, p + 1), x[1][p:])[0]) for x in tape]
             best_tape = []
             for t, c in zip(tape, correlations):
-                if c[0] > self.config["parameters"]["find_best_parameters2_qaoa"]["beta_corr_thr"] and c[1] > \
-                        self.config["parameters"]["find_best_parameters2_qaoa"]["gamma_corr_thr"]:
+                if c[0] > self.beta_corr_thr and c[1] > \
+                        self.gamma_corr_thr:
                     best_tape.append(t)
 
-        best_tape = best_tape[:self.best_number]
+        best_tape = best_tape[:ceil(self.iter_init*0.3)]
         try:
             self.solutions.append((p, best_tape[0][2], best_tape[0][0]))
         except:
@@ -182,15 +165,15 @@ class Algorithm:
         except:
             pass
         print("\n")
-        print("graph_data:", self.best_tape_graph, '\n')
+        # print("graph_data:", self.best_tape_graph, '\n')
         print("Najlepsze rozwiazanie to:", ''.join('1' if x == '0' else '0' for x in best_solution))
         # return (''.join('1' if x == '0' else '0' for x in best_solution))
         return 0
 
 
 class EXACTCOVER(Algorithm):
-    def __init__(self, routes,  config, beta_bound=np.pi * 2, gamma_bound = np.pi * 2):
-        Algorithm.__init__(self, config, beta_bound, gamma_bound)
+    def __init__(self, routes, threads = 1, num_iter = 100, p = 1, beta_corr_thr = 0.9, gamma_corr_thr = 0.9, beta_bound=np.pi * 1, gamma_bound=np.pi * 2):
+        Algorithm.__init__(self, threads, num_iter, p, beta_corr_thr, gamma_corr_thr, beta_bound, gamma_bound)
         self.routes = routes
         self.Jrr_dict = -1
         self.hr_dict = -1
@@ -260,5 +243,5 @@ class EXACTCOVER(Algorithm):
 
 
 def find_run(args):
-    hamiltonian, i, p, educated_guess_params, use_educated_guess, executing_class = args
-    return (executing_class.find_par(hamiltonian, i, p, educated_guess_params, use_educated_guess))
+    hamiltonian, i, p, executing_class = args
+    return (executing_class.find_par(hamiltonian, i, p))
