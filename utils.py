@@ -129,7 +129,7 @@ class Algorithm:
             return True
         return False
 
-    def find_best_parameters(self):
+    def solve(self):
         p = self.p
 
 
