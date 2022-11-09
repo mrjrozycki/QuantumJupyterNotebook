@@ -206,13 +206,9 @@ class EXACTCOVER(Algorithm):
         line_obs = Observable(len(self.routes))
         self.Jrr_dict, self.hr_dict = self.calculate_jrr_hr()
         for i in self.Jrr_dict:
-            # print(i)
             line_obs.add_term(Term(self.Jrr_dict[i], "ZZ", [i[0], i[1]]))
-
         for i in self.hr_dict:
-            # print(i)
             line_obs.add_term(Term(self.hr_dict[i], "Z", [i]))
-        # print(line_obs)
         return line_obs
 
     def obj(self, x):
