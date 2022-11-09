@@ -41,10 +41,7 @@ class Algorithm:
         self.p_start = self.config["parameters"]["find_best_parameters_qaoa"]["p_start"]
         self.use_educated_guess = self.config["parameters"]["find_best_parameters_qaoa"]["use_next_params"]
 
-        if self.use_educated_guess:
-            self.p_end = self.config["parameters"]["find_best_parameters_qaoa"]["p_end"] + 1
-        else:
-            self.p_end = self.p_start + 1
+        self.p = self.p_start
 
     def match_params_to_job(self, x, job, p):
         params = []
@@ -94,90 +91,6 @@ class Algorithm:
         print("", end="")
         return (energy, params, counts, energies)
 
-
-
-    # def create_heatmap(self, args):
-    #     x, hamiltonian, p, p_i, side_length, verbose = args
-
-    #     def beta_function(beta, side_length):
-    #         return - 2 * \
-    #                np.pi + 4 * np.pi * beta / (side_length - 1)
-
-    #     def gamma_function(gamma, side_length):
-    #         return - 2 * \
-    #                np.pi + 4 * np.pi * gamma / (side_length - 1)
-
-    #     energies = np.zeros((side_length, side_length))
-    #     ansatz_with_cnots = AnsatzFactory.qaoa_circuit(hamiltonian, p)
-    #     qpu = get_default_qpu()
-    #     job = ansatz_with_cnots.to_job()
-
-    #     for beta in range(0, side_length):
-    #         for gamma in range(0, side_length):
-    #             if verbose:
-    #                 print(beta, gamma)
-
-    #             x[p_i] = beta_function(beta, side_length)
-    #             x[p_i + p] = gamma_function(gamma, side_length)
-    #             init_params = self.match_params_to_job(x, job, p)
-
-    #             optimal_job = job(
-    #                 **{var: val for var, val in zip(job.get_variables(), init_params)})
-    #             result_optimal = qpu.submit(optimal_job)
-    #             counts = {
-    #                 x.state.bitstring: x.probability for x in result_optimal}
-    #             if type(self).__name__ == "JSP":
-    #                 energy, _ = self.compute_maxcut_energy(
-    #                     counts, self.revese_dict_map, self.model)
-    #             elif type(self).__name__ == "MAXCUT":
-    #                 energy, _ = self.compute_maxcut_energy(counts, self.G)
-    #             elif type(self).__name__ == "EXACTCOVER":
-    #                 energy, _ = self.compute_maxcut_energy(counts, self.routes)
-    #             energies[beta, gamma] = energy
-
-    #     return energies
-
-    # def create_heatmap_from_best(self, params, p, p_i, hamiltonian, side_length=50):
-    #     x = np.copy(params)
-
-    #     def beta_function(beta, side_length): return np.pi * \
-    #                                                  beta / (side_length - 1)
-
-    #     def gamma_function(gamma, side_length): return 2 * \
-    #                                                    np.pi * gamma / (side_length - 1)
-
-    #     energies = self.create_heatmap(
-    #         x, hamiltonian, p, p_i, side_length, beta_function, gamma_function)
-
-    #     lowest_indices = np.unravel_index(np.argmin(energies), energies.shape)
-    #     lowest_beta = np.pi * lowest_indices[0] / (side_length - 1)
-    #     lowest_gamma = np.pi * 2 * lowest_indices[1] / (side_length - 1)
-
-    #     return energies, lowest_beta, lowest_gamma
-
-    # def find_new_params(self, solution, p, hamiltonian):
-    #     new_params = np.zeros(2 * p)
-    #     _, params, _, _ = solution
-    #     for i, (beta, gamma) in enumerate(zip(params[:p], params[p:])):
-    #         if beta > 0 and beta < np.pi and gamma > 0 and gamma < 2 * np.pi:
-    #             new_params[i] = beta
-    #             new_params[i + p] = gamma
-    #         else:
-    #             heatmap, lowest_beta, lowest_gamma = self.create_heatmap_from_best(
-    #                 params, p, i, hamiltonian)
-    #             new_params[i] = lowest_beta
-    #             new_params[i + p] = lowest_gamma
-    #     return new_params
-
-    # def fix_tape(self, args):
-    #     solution, i, hamiltonian, p = args
-    #     new_params = self.find_new_params(solution, p, hamiltonian)
-    #     use_educated_guess = True
-    #     new_solution = self.find(
-    #         [hamiltonian, i, p, new_params, use_educated_guess])
-    #     # print(new_solution)
-    #     return new_solution
-
     def range_energies(self, x, interval_count):
         przedzial = ceil(len(x) / interval_count)
         #   print(przedzial)
@@ -223,9 +136,8 @@ class Algorithm:
         return False
 
     def find_best_parameters(self):
-
+        p = self.p
         self.progress_p = self.p_start
-        self.p_range = [self.p_start, self.p_end]
         educated_guess_params = None
 
 
@@ -235,59 +147,32 @@ class Algorithm:
         iter_loop = self.iter_init
         hamiltonian = self.make_hamiltonian()
 
-        for p in range(self.p_start, self.p_end):
-            print("\n\n")
-            if self.p_start + 1 != self.p_end:
-                print("Iteration for p = ", p)
+        # for p in range(self.p_start, self.p_end):
+        print("\n\n")
 
-            self.iter_loop = iter_loop
-            tape = p_map(find_run, [[hamiltonian, i, p, educated_guess_params, self.use_educated_guess, self] for i in
-                                    range(iter_loop)], num_cpus=self.pool_size)
+        self.iter_loop = iter_loop
+        tape = p_map(find_run, [[hamiltonian, i, p, educated_guess_params, self.use_educated_guess, self] for i in
+                                range(iter_loop)], num_cpus=self.pool_size)
 
-            self.progress_p = p + 1
-            if educated_guess_params is None:
-                tape = sorted(tape, key=lambda x: x[0])
+        self.progress_p = p + 1
+        if educated_guess_params is None:
+            tape = sorted(tape, key=lambda x: x[0])
 
-            best_tape = tape
-            if p > 1:
-                correlations = [(pearsonr(np.arange(1, p + 1), x[1][:p])[0],
-                                 pearsonr(np.arange(1, p + 1), x[1][p:])[0]) for x in tape]
-                best_tape = []
-                for t, c in zip(tape, correlations):
-                    if c[0] > self.config["parameters"]["find_best_parameters2_qaoa"]["beta_corr_thr"] and c[1] > \
-                            self.config["parameters"]["find_best_parameters2_qaoa"]["gamma_corr_thr"]:
-                        best_tape.append(t)
+        best_tape = tape
+        if p > 1:
+            correlations = [(pearsonr(np.arange(1, p + 1), x[1][:p])[0],
+                                pearsonr(np.arange(1, p + 1), x[1][p:])[0]) for x in tape]
+            best_tape = []
+            for t, c in zip(tape, correlations):
+                if c[0] > self.config["parameters"]["find_best_parameters2_qaoa"]["beta_corr_thr"] and c[1] > \
+                        self.config["parameters"]["find_best_parameters2_qaoa"]["gamma_corr_thr"]:
+                    best_tape.append(t)
 
-            best_tape = best_tape[:self.best_number]
-            try:
-                self.solutions.append((p, best_tape[0][2], best_tape[0][0]))
-            except:
-                print("Nothing good enought to add, probably not enought iteretion")
-
-
-            iter_loop = int(len(best_tape))
-            if len(best_tape) > 0:
-                self.best_iter_solution = max(
-                    best_tape[0][2], key=best_tape[0][2].get)
-                x, y = zip(*best_tape[0][3].items())
-                zipped_lists = zip(x, y)
-                sorted_pairs = sorted(zipped_lists, reverse=False)
-                tuples = zip(*sorted_pairs)
-                xs, ys = [tuple for tuple in tuples]
-                yss = self.range_probability(ys, 5)
-                xss = self.range_energies(xs, 5)
-
-                interval = []
-                # print('X:',xss,'\nY:',yss, flush=True)
-                if (len(yss) + 1 == len(xss)):
-                    yss.append(0)
-                for i in range(len(xss)):
-                    interval.append({"probability": yss[i], "energy": (str(xss[i])).replace("'", "").replace("]", ")")})
-                self.best_tape_graph.append(interval)
-
-
-
-            self.best_iter_solution = ''.join('1' if x == '0' else '0' for x in self.best_iter_solution)
+        best_tape = best_tape[:self.best_number]
+        try:
+            self.solutions.append((p, best_tape[0][2], best_tape[0][0]))
+        except:
+            print("Nothing good enought to add, probably not enought iteretion")
 
         best_solution = ""
         self.progress_p = -1
@@ -299,7 +184,8 @@ class Algorithm:
         print("\n")
         print("graph_data:", self.best_tape_graph, '\n')
         print("Najlepsze rozwiazanie to:", ''.join('1' if x == '0' else '0' for x in best_solution))
-        return (''.join('1' if x == '0' else '0' for x in best_solution))
+        # return (''.join('1' if x == '0' else '0' for x in best_solution))
+        return 0
 
 
 class EXACTCOVER(Algorithm):

@@ -7,9 +7,9 @@
         },
         "find_best_parameters_qaoa": {
             "machine": "Atos Simulator",
-            "pool_size": 4,
+            "pool_size": 1,
             "iter_init": 300,
-            "best_number": 100,
+            "best_number": 20,
             "p_start": 1,
             "p_end": 5,
             "use_next_params": false
