@@ -18,6 +18,11 @@ from qat.qpus import get_default_qpu
 from qat.plugins import ScipyMinimizePlugin
 from multiprocessing import Pool
 
+#Graph
+import ipycytoscape
+import ipywidgets as widgets
+import networkx as nx
+
 
 
 class Algorithm:
@@ -237,6 +242,92 @@ class EXACTCOVER(Algorithm):
             energy += obj_for_meas * meas_count
             total_counts += meas_count
         return energy / total_counts, energies
+
+class CustomNode(ipycytoscape.Node):
+    def __init__(self, name, classes='', label=''):
+        super().__init__()
+        self.data['id'] = name
+        self.classes = classes
+        self.data['label'] = label
+
+class GRAPH():
+    def __init__(self, routes = [], result = ''):
+        self.routes = routes
+        self.result = result
+    
+    def print_graph(self):
+        nodes = []
+        sender_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+        for sender_index, _ in enumerate(self.routes):
+            nodes.append(CustomNode(sender_labels[sender_index], label=sender_labels[sender_index], classes='class' + str(sender_index)))
+        nodes.append(CustomNode('ghost', classes='class-ghost'))
+
+        for i in range(7):
+            nodes.append(CustomNode(str(i), label=str(i+1), classes='class' + str(6+i)))
+
+        G = nx.Graph()
+
+        for sender_node in nodes:
+            G.add_node(sender_node)
+
+        for sender_index, sender in enumerate(self.routes):
+            is_in_result = 'False'
+            if self.result[sender_index] == '1':
+                is_in_result = 'True'
+            for receiver_id in list(sender):
+                G.add_edge(nodes[sender_index], nodes[6 + receiver_id], active=is_in_result)
+
+        styles = [
+                    {
+                        'selector': 'node',
+                        'css': {
+                            'background-color': 'white'
+                        },
+                        'style': {
+                            'label': 'data(label)'
+                        }
+                    },
+                    {
+                        'selector': 'node.class-ghost',
+                        'css': {
+                            'background-color': 'white'
+                        }
+                    },
+                    {
+                        "selector": "edge.directed",
+                        "style": {
+                            "curve-style": "bezier",
+                            "target-arrow-shape": "triangle",
+                            "target-arrow-color": "#999",
+                        },
+                    },
+                    {
+                        "selector": "edge[active = 'True']",
+                        "style": {
+                            "line-color": "#106BEF",
+                            "curve-style": "bezier",
+                            "target-arrow-shape": "triangle",
+                            "target-arrow-color": "#106BEF",
+                        },
+                    }]
+        additional_styles = []
+        for index, node in enumerate(self.result):
+            if node == '0':
+                continue
+            additional_styles.append({
+                                    'selector': 'node.class' + str(index),
+                                    'css': {
+                                        'background-color': '#106BEF',
+                                        'label': 'data(label)'
+                                    }
+                                })
+
+        custom_inherited = ipycytoscape.CytoscapeWidget()
+        custom_inherited.graph.add_graph_from_networkx(G, directed=True)
+        custom_inherited.set_layout(name='grid', nodeSpacing=10, edgeLengthVal=10)
+        custom_inherited.set_style(styles + additional_styles)
+
+        return custom_inherited
 
 
 def find_run(args):
